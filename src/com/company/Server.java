@@ -19,13 +19,6 @@ class Server {
 
     private final HttpHanlder hanlder;
 
-    private final static String HEADERS =
-            "HTTP/1.1 200 OK\n" +
-                    "Server: naive\n" +
-                    "Content-Type: text/html\n" +
-                    "Content-Length: %s\n" +
-                    "Connection: close\n\n";
-
     Server(HttpHanlder hanlder) {
         this.hanlder = hanlder;
     }
@@ -78,11 +71,41 @@ class Server {
 
             HttpResponse response = new HttpResponse();
 
-            String body = hanlder.handle(request, response);
+            if (hanlder != null) {
 
-            String page = String.format(HEADERS, body.length()) + body;
+                try {
+                    String body = hanlder.handle(request, response);
 
-            socketChannel.write(ByteBuffer.wrap(page.getBytes()));
+                    if (body != null && !body.isBlank()) {
+                        if (response.getHeaders().get("Content-Type") == null) {
+                            response.addHeader("Content-Type", "text/html; charset=utf-8");
+                        }
+                        response.setBody(body);
+
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    response.setStatusCode(500);
+                    response.setStatus("Internal server error");
+                    response.addHeader("Content-Type", "text/html; charset=utf-8");
+
+                    response.setBody("<html><body><h1>" +
+                            "Something went wrong 😡" +
+                            "</h1></body></html>");
+
+
+                }
+            } else {
+
+                response.setStatusCode(404);
+                response.setStatus("Not found");
+                response.addHeader("Content-Type", "text/html; charset=utf-8");
+                response.setBody("<html><body><h1>" +
+                        "Resource not found" +
+                        "</h1></body></html>");
+
+            }
+            socketChannel.write(ByteBuffer.wrap(response.getBytes()));
             socketChannel.close();
         }
     }
